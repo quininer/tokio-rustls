@@ -10,6 +10,9 @@ readme = "README.md"
 description = "Asynchronous TLS/SSL streams for Tokio using Rustls."
 categories = ["asynchronous", "cryptography", "network-programming"]
 
+[features]
+tokio-proto = []
+
 [badges]
 travis-ci = { repository = "quininer/tokio-rustls" }
 appveyor = { repository = "quininer/tokio-rustls" }
