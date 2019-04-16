@@ -1,4 +1,5 @@
 use super::*;
+use std::io::Write;
 use tokio_io::{ AsyncRead, AsyncWrite };
 use futures::{Async, Future, Poll};
 use common::Stream;
@@ -83,7 +84,7 @@ impl<IO, S> AsyncWrite for TlsStream<IO, S>
 
         {
             let mut stream = Stream::new(&mut self.session, &mut self.io);
-            try_async!(stream.complete_io());
+            try_async!(stream.flush());
         }
         self.io.shutdown()
     }
