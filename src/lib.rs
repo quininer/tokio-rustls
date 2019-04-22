@@ -51,6 +51,13 @@ impl TlsState {
             _ => true,
         }
     }
+
+    pub(crate) fn readable(self) -> bool {
+        match self {
+            TlsState::ReadShutdown | TlsState::FullyShutdown => false,
+            _ => true,
+        }
+    }
 }
 
 /// A wrapper around a `rustls::ClientConfig`, providing an async `connect` method.
