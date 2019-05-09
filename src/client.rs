@@ -48,8 +48,9 @@ where
     #[inline]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let MidHandshake::Handshaking(stream) = self {
+            let state = stream.state;
             let (io, session) = stream.get_mut();
-            let mut stream = Stream::new(io, session);
+            let mut stream = Stream::new(io, session).set_eof(!state.readable());
 
             if stream.session.is_handshaking() {
                 try_nb!(stream.complete_io());
@@ -102,7 +103,7 @@ where
                 self.read(buf)
             }
             TlsState::Stream | TlsState::WriteShutdown => {
-                let mut stream = Stream::new(&mut self.io, &mut self.session);
+                let mut stream = Stream::new(&mut self.io, &mut self.session).set_eof(!self.state.readable());
 
                 match stream.read(buf) {
                     Ok(0) => {
@@ -131,7 +132,7 @@ where
     IO: AsyncRead + AsyncWrite,
 {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut stream = Stream::new(&mut self.io, &mut self.session);
+        let mut stream = Stream::new(&mut self.io, &mut self.session).set_eof(!self.state.readable());
 
         match self.state {
             #[cfg(feature = "early-data")]
@@ -168,7 +169,9 @@ where
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        Stream::new(&mut self.io, &mut self.session).flush()?;
+        Stream::new(&mut self.io, &mut self.session)
+            .set_eof(!self.state.readable())
+            .flush()?;
         self.io.flush()
     }
 }
@@ -192,7 +195,7 @@ where
             self.state.shutdown_write();
         }
 
-        let mut stream = Stream::new(&mut self.io, &mut self.session);
+        let mut stream = Stream::new(&mut self.io, &mut self.session).set_eof(!self.state.readable());
         try_nb!(stream.flush());
         stream.io.shutdown()
     }

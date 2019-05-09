@@ -42,8 +42,9 @@ where
     #[inline]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let MidHandshake::Handshaking(stream) = self {
+            let state = stream.state;
             let (io, session) = stream.get_mut();
-            let mut stream = Stream::new(io, session);
+            let mut stream = Stream::new(io, session).set_eof(!state.readable());
 
             if stream.session.is_handshaking() {
                 try_nb!(stream.complete_io());
@@ -66,7 +67,7 @@ where
     IO: AsyncRead + AsyncWrite,
 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut stream = Stream::new(&mut self.io, &mut self.session);
+        let mut stream = Stream::new(&mut self.io, &mut self.session).set_eof(!self.state.readable());
 
         match self.state {
             TlsState::Stream | TlsState::WriteShutdown => match stream.read(buf) {
@@ -97,12 +98,15 @@ where
     IO: AsyncRead + AsyncWrite,
 {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut stream = Stream::new(&mut self.io, &mut self.session);
-        stream.write(buf)
+        Stream::new(&mut self.io, &mut self.session)
+            .set_eof(!self.state.readable())
+            .write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        Stream::new(&mut self.io, &mut self.session).flush()?;
+        Stream::new(&mut self.io, &mut self.session)
+            .set_eof(!self.state.readable())
+            .flush()?;
         self.io.flush()
     }
 }
@@ -126,7 +130,7 @@ where
             self.state.shutdown_write();
         }
 
-        let mut stream = Stream::new(&mut self.io, &mut self.session);
+        let mut stream = Stream::new(&mut self.io, &mut self.session).set_eof(!self.state.readable());
         try_nb!(stream.complete_io());
         stream.io.shutdown()
     }

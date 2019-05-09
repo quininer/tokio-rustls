@@ -5,10 +5,10 @@ use rustls::Session;
 use rustls::WriteV;
 use tokio_io::{ AsyncRead, AsyncWrite };
 
-
 pub struct Stream<'a, IO: 'a, S: 'a> {
     pub io: &'a mut IO,
-    pub session: &'a mut S
+    pub session: &'a mut S,
+    pub eof: bool,
 }
 
 pub trait WriteTls<'a, IO: AsyncRead + AsyncWrite, S: Session>: Read + Write {
@@ -24,7 +24,18 @@ enum Focus {
 
 impl<'a, IO: AsyncRead + AsyncWrite, S: Session> Stream<'a, IO, S> {
     pub fn new(io: &'a mut IO, session: &'a mut S) -> Self {
-        Stream { io, session }
+        Stream {
+            io,
+            session,
+            // The state so far is only used to detect EOF, so either Stream
+            // or EarlyData state should both be all right.
+            eof: false,
+        }
+    }
+
+    pub fn set_eof(mut self, eof: bool) -> Self {
+        self.eof = eof;
+        self
     }
 
     pub fn complete_io(&mut self) -> io::Result<(usize, usize)> {
@@ -54,7 +65,6 @@ impl<'a, IO: AsyncRead + AsyncWrite, S: Session> Stream<'a, IO, S> {
     fn complete_inner_io(&mut self, focus: Focus) -> io::Result<(usize, usize)> {
         let mut wrlen = 0;
         let mut rdlen = 0;
-        let mut eof = false;
 
         loop {
             let mut write_would_block = false;
@@ -71,12 +81,14 @@ impl<'a, IO: AsyncRead + AsyncWrite, S: Session> Stream<'a, IO, S> {
                 }
             }
 
-            if !eof && self.session.wants_read() {
+            if !self.eof && self.session.wants_read() {
                 match self.complete_read_io() {
-                    Ok(0) => eof = true,
+                    Ok(0) => self.eof = true,
                     Ok(n) => rdlen += n,
-                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => read_would_block = true,
-                    Err(err) => return Err(err)
+                    Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
+                        read_would_block = true
+                    }
+                    Err(err) => return Err(err),
                 }
             }
 
@@ -86,7 +98,11 @@ impl<'a, IO: AsyncRead + AsyncWrite, S: Session> Stream<'a, IO, S> {
                 Focus::Writable => write_would_block,
             };
 
-            match (eof, self.session.is_handshaking(), would_block) {
+            match (
+                self.eof, 
+                self.session.is_handshaking(),
+                would_block,
+            ) {
                 (true, true, _) => return Err(io::ErrorKind::UnexpectedEof.into()),
                 (_, false, true) => {
                     let would_block = match focus {

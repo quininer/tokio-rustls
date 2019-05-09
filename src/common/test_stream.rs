@@ -11,7 +11,6 @@ use futures::{ Async, Poll };
 use tokio_io::{ AsyncRead, AsyncWrite };
 use super::Stream;
 
-
 struct Good<'a>(&'a mut Session);
 
 impl<'a> Read for Good<'a> {
@@ -146,6 +145,19 @@ fn stream_handshake_eof() -> io::Result<()> {
 
     assert_eq!(r.unwrap_err().kind(), io::ErrorKind::UnexpectedEof);
 
+    Ok(())
+}
+
+#[test]
+fn stream_eof() -> io::Result<()> {
+    let (mut server, mut client) = make_pair();
+    do_handshake(&mut client, &mut server);
+    {
+        let mut good = Good(&mut server);
+        let mut stream = Stream::new(&mut good, &mut client).set_eof(true);
+        let (r, _) = stream.complete_io()?;
+        assert!(r == 0);
+    }
     Ok(())
 }
 
