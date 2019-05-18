@@ -186,7 +186,7 @@ impl<'a, S: Session, IO: Read + Write> io::Write for Stream<'a, S, IO> {
 
     fn flush(&mut self) -> io::Result<()> {
         self.session.flush()?;
-        if self.session.wants_write() {
+        while self.session.wants_write() {
             self.complete_inner_io(Focus::Writable)?;
         }
         Ok(())
