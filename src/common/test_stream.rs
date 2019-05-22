@@ -1,10 +1,10 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{ Poll, Context };
-use futures_core::ready;
-use futures_util::future::poll_fn;
-use futures_util::task::noop_waker_ref;
-use tokio_io::{ AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt };
+use futures::ready;
+use futures::prelude::*;
+use futures::task::noop_waker_ref;
+use futures::future::poll_fn;
 use std::io::{ self, Read, Write, BufReader, Cursor };
 use webpki::DNSNameRef;
 use rustls::internal::pemfile::{ certs, rsa_private_keys };
@@ -38,7 +38,7 @@ impl<'a> AsyncWrite for Good<'a> {
         Poll::Ready(Ok(()))
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_close(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.0.send_close_notify();
         Poll::Ready(Ok(()))
     }
@@ -61,7 +61,7 @@ impl AsyncWrite for Pending {
         Poll::Ready(Ok(()))
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
 }
@@ -83,12 +83,11 @@ impl AsyncWrite for Eof {
         Poll::Ready(Ok(()))
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
 }
 
-#[tokio::test]
 async fn stream_good() -> io::Result<()> {
     const FILE: &'static [u8] = include_bytes!("../../README.md");
 
@@ -114,7 +113,6 @@ async fn stream_good() -> io::Result<()> {
     Ok(()) as io::Result<()>
 }
 
-#[tokio::test]
 async fn stream_bad() -> io::Result<()> {
     let (mut server, mut client) = make_pair();
     poll_fn(|cx| do_handshake(&mut client, &mut server, cx)).await?;
@@ -134,7 +132,6 @@ async fn stream_bad() -> io::Result<()> {
     Ok(()) as io::Result<()>
 }
 
-#[tokio::test]
 async fn stream_handshake() -> io::Result<()> {
     let (mut server, mut client) = make_pair();
 
@@ -155,7 +152,6 @@ async fn stream_handshake() -> io::Result<()> {
     Ok(()) as io::Result<()>
 }
 
-#[tokio::test]
 async fn stream_handshake_eof() -> io::Result<()> {
     let (_, mut client) = make_pair();
 
@@ -169,7 +165,6 @@ async fn stream_handshake_eof() -> io::Result<()> {
     Ok(()) as io::Result<()>
 }
 
-#[tokio::test]
 async fn stream_eof() -> io::Result<()> {
     let (mut server, mut client) = make_pair();
     poll_fn(|cx| do_handshake(&mut client, &mut server, cx)).await?;
@@ -217,4 +212,16 @@ fn do_handshake(client: &mut ClientSession, server: &mut ServerSession, cx: &mut
     }
 
     Poll::Ready(Ok(()))
+}
+
+#[test]
+fn test_all() -> io::Result<()> {
+    futures::executor::block_on(async {
+        stream_good().await?;
+        stream_bad().await?;
+        stream_handshake().await?;
+        stream_handshake_eof().await?;
+        stream_eof().await?;
+        Ok(())
+    })
 }

@@ -3,7 +3,7 @@ use std::task::{ Poll, Context };
 use std::marker::Unpin;
 use std::io::{ self, Read, Write };
 use rustls::Session;
-use tokio_io::{ AsyncRead, AsyncWrite };
+use futures_io::{ AsyncRead, AsyncWrite };
 use futures_core as futures;
 
 
@@ -236,12 +236,12 @@ impl<'a, IO: AsyncRead + AsyncWrite + Unpin, S: Session> AsyncWrite for Stream<'
         Pin::new(&mut self.io).poll_flush(cx)
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         while self.session.wants_write() {
             futures::ready!(self.write_io(cx))?;
         }
 
-        Pin::new(&mut self.io).poll_shutdown(cx)
+        Pin::new(&mut self.io).poll_close(cx)
     }
 }
 

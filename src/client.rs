@@ -53,11 +53,11 @@ where
             let mut stream = Stream::new(io, session).set_eof(eof);
 
             while stream.session.is_handshaking() {
-                futures::ready!(stream.handshake(cx))?;
+                futures_core::ready!(stream.handshake(cx))?;
             }
 
             while stream.session.wants_write() {
-                futures::ready!(stream.write_io(cx))?;
+                futures_core::ready!(stream.write_io(cx))?;
             }
         }
 
@@ -74,10 +74,6 @@ impl<IO> AsyncRead for TlsStream<IO>
 where
     IO: AsyncRead + AsyncWrite + Unpin,
 {
-    unsafe fn prepare_uninitialized_buffer(&self, buf: &mut [u8]) -> bool {
-        self.io.prepare_uninitialized_buffer(buf)
-    }
-
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         match self.state {
             #[cfg(feature = "early-data")]
@@ -141,13 +137,13 @@ where
 
                 // complete handshake
                 while stream.session.is_handshaking() {
-                    futures::ready!(stream.handshake(cx))?;
+                    futures_core::ready!(stream.handshake(cx))?;
                 }
 
                 // write early data (fallback)
                 if !stream.session.is_early_data_accepted() {
                     while *pos < data.len() {
-                        let len = futures::ready!(stream.as_mut_pin().poll_write(cx, &data[*pos..]))?;
+                        let len = futures_core::ready!(stream.as_mut_pin().poll_write(cx, &data[*pos..]))?;
                         *pos += len;
                     }
                 }
@@ -169,14 +165,14 @@ where
         #[cfg(feature = "early-data")] {
             // complete handshake
             while stream.session.is_handshaking() {
-                futures::ready!(stream.handshake(cx))?;
+                futures_core::ready!(stream.handshake(cx))?;
             }
         }
 
         stream.as_mut_pin().poll_flush(cx)
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         if self.state.writeable() {
             self.session.send_close_notify();
             self.state.shutdown_write();
@@ -190,6 +186,6 @@ where
         //
         // should we complete the handshake?
 
-        stream.as_mut_pin().poll_shutdown(cx)
+        stream.as_mut_pin().poll_close(cx)
     }
 }

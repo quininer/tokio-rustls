@@ -1,18 +1,17 @@
-//! Asynchronous TLS/SSL streams for Tokio using [Rustls](https://github.com/ctz/rustls).
+//! Asynchronous TLS/SSL streams for Future using [Rustls](https://github.com/ctz/rustls).
 
 pub mod client;
 mod common;
 pub mod server;
 
 use common::Stream;
-use futures_core as futures;
 use rustls::{ClientConfig, ClientSession, ServerConfig, ServerSession};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{io, mem};
-use tokio_io::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite};
 use webpki::DNSNameRef;
 
 pub use rustls;
@@ -43,8 +42,8 @@ impl TlsState {
         }
     }
 
-    fn writeable(&self) -> bool {
-        match *self {
+    fn writeable(self) -> bool {
+        match self {
             TlsState::WriteShutdown | TlsState::FullyShutdown => false,
             _ => true,
         }
@@ -181,7 +180,6 @@ pub struct Accept<IO>(server::MidHandshake<IO>);
 impl<IO: AsyncRead + AsyncWrite + Unpin> Future for Connect<IO> {
     type Output = io::Result<client::TlsStream<IO>>;
 
-    #[inline]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.0).poll(cx)
     }
@@ -190,7 +188,6 @@ impl<IO: AsyncRead + AsyncWrite + Unpin> Future for Connect<IO> {
 impl<IO: AsyncRead + AsyncWrite + Unpin> Future for Accept<IO> {
     type Output = io::Result<server::TlsStream<IO>>;
 
-    #[inline]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.0).poll(cx)
     }

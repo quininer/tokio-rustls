@@ -1,29 +1,29 @@
-# tokio-rustls
+# futures-rustls
 [![travis-ci](https://travis-ci.org/quininer/tokio-rustls.svg?branch=master)](https://travis-ci.org/quininer/tokio-rustls)
 [![appveyor](https://ci.appveyor.com/api/projects/status/4ukw15enii50suqi?svg=true)](https://ci.appveyor.com/project/quininer/tokio-rustls)
-[![crates](https://img.shields.io/crates/v/tokio-rustls.svg)](https://crates.io/crates/tokio-rustls)
+[![crates](https://img.shields.io/crates/v/futures-rustls.svg)](https://crates.io/crates/futures-rustls)
 [![license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/quininer/tokio-rustls/blob/master/LICENSE-MIT)
 [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/quininer/tokio-rustls/blob/master/LICENSE-APACHE)
-[![docs.rs](https://docs.rs/tokio-rustls/badge.svg)](https://docs.rs/tokio-rustls/)
+[![docs.rs](https://docs.rs/futures-rustls/badge.svg)](https://docs.rs/futures-rustls/)
 
-Asynchronous TLS/SSL streams for [Tokio](https://tokio.rs/) using
+Asynchronous TLS/SSL streams for [Future](https://futures.rs/) using
 [Rustls](https://github.com/ctz/rustls).
 
 ### Basic Structure of a Client
 
 ```rust
 use webpki::DNSNameRef;
-use tokio_rustls::{ TlsConnector, rustls::ClientConfig };
+use futures_rustls::{ TlsConnector, rustls::ClientConfig };
 
 // ...
 
 let mut config = ClientConfig::new();
 config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-let config = TlsConnector::from(Arc::new(config));
-let dnsname = DNSNameRef::try_from_ascii_str("www.rust-lang.org").unwrap();
+let connector = TlsConnector::from(Arc::new(config));
+let dnsname = DNSNameRef::try_from_ascii_str("www.rust-lang.org")?;
 
-TcpStream::connect(&addr)
-	.and_then(move |socket| config.connect(dnsname, socket))
+let socket = TcpStream::connect(&addr).await?;
+let stream = connector.connect(dnsname, socket).await?;
 
 // ...
 ```
@@ -57,10 +57,10 @@ This project is licensed under either of
 
 at your option.
 
-This started as a fork of [tokio-tls](https://github.com/tokio-rs/tokio-tls).
+This started as a fork of [futures-tls](https://github.com/futures-rs/futures-tls).
 
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in tokio-rustls by you, as defined in the Apache-2.0 license, shall be
+for inclusion in futures-rustls by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.

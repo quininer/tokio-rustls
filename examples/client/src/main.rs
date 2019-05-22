@@ -11,7 +11,7 @@ use romio::TcpStream;
 use futures::prelude::*;
 use futures::executor;
 use futures::compat::{ AsyncRead01CompatExt, AsyncWrite01CompatExt };
-use tokio_rustls::{ TlsConnector, rustls::ClientConfig, webpki::DNSNameRef };
+use futures_rustls::{ TlsConnector, rustls::ClientConfig, webpki::DNSNameRef };
 use tokio_stdin_stdout::{ stdin as tokio_stdin, stdout as tokio_stdout };
 
 

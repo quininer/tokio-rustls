@@ -1,10 +1,11 @@
 use std::io;
 use std::sync::Arc;
 use std::net::ToSocketAddrs;
-use tokio::prelude::*;
-use tokio::net::TcpStream;
+use romio::TcpStream;
+use futures::prelude::*;
+use futures::executor;
 use rustls::ClientConfig;
-use tokio_rustls::{ TlsConnector, client::TlsStream };
+use futures_rustls::{ TlsConnector, client::TlsStream };
 
 
 async fn get(config: Arc<ClientConfig>, domain: &str, port: u16)
@@ -28,8 +29,7 @@ async fn get(config: Arc<ClientConfig>, domain: &str, port: u16)
     Ok((stream, String::from_utf8(buf).unwrap()))
 }
 
-#[tokio::test]
-async fn test_tls12() -> io::Result<()> {
+async fn async_test_tls12() -> io::Result<()> {
     let mut config = ClientConfig::new();
     config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     config.versions = vec![rustls::ProtocolVersion::TLSv1_2];
@@ -42,14 +42,19 @@ async fn test_tls12() -> io::Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_tls12() -> io::Result<()> {
+    executor::block_on(async_test_tls12())
+}
+
+#[ignore]
 #[should_panic]
 #[test]
 fn test_tls13() {
     unimplemented!("todo https://github.com/chromium/badssl.com/pull/373");
 }
 
-#[tokio::test]
-async fn test_modern() -> io::Result<()> {
+async fn async_test_modern() -> io::Result<()> {
     let mut config = ClientConfig::new();
     config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     let config = Arc::new(config);
@@ -59,4 +64,9 @@ async fn test_modern() -> io::Result<()> {
     assert!(output.contains("<title>mozilla-modern.badssl.com</title>"));
 
     Ok(())
+}
+
+#[test]
+fn test_modern() -> io::Result<()> {
+    executor::block_on(async_test_modern())
 }

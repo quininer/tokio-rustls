@@ -8,12 +8,12 @@ use std::marker::Unpin;
 use std::pin::{ Pin };
 use std::task::{ Context, Poll };
 use std::time::Duration;
-use tokio::prelude::*;
-use tokio::net::TcpStream;
-use tokio::timer::delay_for;
-use futures_util::{ future, ready };
+use romio::TcpStream;
+use futures::prelude::*;
+use futures::executor;
+use futures_timer::Delay;
 use rustls::ClientConfig;
-use tokio_rustls::{ TlsConnector, client::TlsStream };
+use futures_rustls::{ TlsConnector, client::TlsStream };
 
 
 struct Read1<T>(T);
@@ -23,7 +23,7 @@ impl<T: AsyncRead + Unpin> Future for Read1<T> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut buf = [0];
-        ready!(Pin::new(&mut self.0).poll_read(cx, &mut buf))?;
+        futures::ready!(Pin::new(&mut self.0).poll_read(cx, &mut buf))?;
         Poll::Pending
     }
 }
@@ -43,14 +43,14 @@ async fn send(config: Arc<ClientConfig>, addr: SocketAddr, data: &[u8])
     // sleep 1s
     //
     // see https://www.mail-archive.com/openssl-users@openssl.org/msg84451.html
-    let sleep1 = delay_for(Duration::from_secs(1));
+    let sleep1 = Delay::new(Duration::from_secs(1));
     let mut stream = match future::select(Read1(stream), sleep1).await {
         future::Either::Right((_, Read1(stream))) => stream,
         future::Either::Left((Err(err), _)) => return Err(err),
         future::Either::Left((Ok(_), _)) => unreachable!(),
     };
 
-    stream.shutdown().await?;
+    stream.close().await?;
 
     Ok(stream)
 }
@@ -63,8 +63,7 @@ impl Drop for DropKill {
     }
 }
 
-#[tokio::test]
-async fn test_0rtt() -> io::Result<()> {
+async fn async_test_0rtt() -> io::Result<()> {
     let mut handle = Command::new("openssl")
         .arg("s_server")
         .arg("-early_data")
@@ -77,7 +76,7 @@ async fn test_0rtt() -> io::Result<()> {
         .map(DropKill)?;
 
     // wait openssl server
-    delay_for(Duration::from_secs(1)).await;
+    Delay::new(Duration::from_secs(1)).await;
 
     let mut config = ClientConfig::new();
     let mut chain = BufReader::new(Cursor::new(include_str!("end.chain")));
@@ -116,4 +115,9 @@ async fn test_0rtt() -> io::Result<()> {
     assert!(f1 && f2);
 
     Ok(())
+}
+
+#[test]
+fn test_0rtt() -> io::Result<()> {
+    executor::block_on(async_test_0rtt())
 }

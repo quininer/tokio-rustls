@@ -8,4 +8,4 @@ edition = "2018"
 futures = { package = "futures-preview", version = "0.3.0-alpha.16" }
 romio = "0.3.0-alpha.8"
 structopt = "0.2"
-tokio-rustls = { path = "../.." }
+futures-rustls = { path = "../.." }

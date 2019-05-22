@@ -1,23 +1,22 @@
 [package]
-name = "tokio-rustls"
-version = "0.12.0-alpha.5"
+name = "futures-rustls"
+version = "0.12.0-alpha.1"
 authors = ["quininer kel <quininer@live.com>"]
 license = "MIT/Apache-2.0"
-repository = "https://github.com/quininer/tokio-rustls"
-homepage = "https://github.com/quininer/tokio-rustls"
-documentation = "https://docs.rs/tokio-rustls"
+repository = "https://github.com/quininer/futures-rustls"
+homepage = "https://github.com/quininer/futures-rustls"
+documentation = "https://docs.rs/futures-rustls"
 readme = "README.md"
-description = "Asynchronous TLS/SSL streams for Tokio using Rustls."
+description = "Asynchronous TLS/SSL streams for Future using Rustls."
 categories = ["asynchronous", "cryptography", "network-programming"]
 edition = "2018"
 
 [badges]
-travis-ci = { repository = "quininer/tokio-rustls" }
-appveyor = { repository = "quininer/tokio-rustls" }
+travis-ci = { repository = "quininer/futures-rustls" }
+appveyor = { repository = "quininer/futures-rustls" }
 
 [dependencies]
-smallvec = "0.6"
-tokio-io = "=0.2.0-alpha.6"
+futures-io-preview = "=0.3.0-alpha.19"
 futures-core-preview = "=0.3.0-alpha.19"
 rustls = "0.16"
 webpki = "0.21"
@@ -26,7 +25,8 @@ webpki = "0.21"
 early-data = []
 
 [dev-dependencies]
-tokio = "=0.2.0-alpha.6"
-futures-util-preview = "0.3.0-alpha.19"
+romio = "0.3.0-alpha.10"
+futures-preview = "0.3.0-alpha.19"
+futures-timer = "1"
 lazy_static = "1"
 webpki-roots = "0.18"

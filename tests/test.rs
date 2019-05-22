@@ -4,14 +4,13 @@ use std::sync::Arc;
 use std::sync::mpsc::channel;
 use std::net::SocketAddr;
 use lazy_static::lazy_static;
-use tokio::prelude::*;
-use tokio::runtime::current_thread;
-use tokio::net::{ TcpListener, TcpStream };
-use tokio::io::split;
-use futures_util::try_future::TryFutureExt;
+use romio::{ TcpListener, TcpStream };
+use futures::prelude::*;
+use futures::executor;
+use futures::task::SpawnExt;
 use rustls::{ ServerConfig, ClientConfig };
 use rustls::internal::pemfile::{ certs, rsa_private_keys };
-use tokio_rustls::{ TlsConnector, TlsAcceptor };
+use futures_rustls::{ TlsConnector, TlsAcceptor };
 
 const CERT: &str = include_str!("end.cert");
 const CHAIN: &str = include_str!("end.chain");
@@ -30,12 +29,12 @@ lazy_static!{
         let (send, recv) = channel();
 
         thread::spawn(move || {
-            let mut runtime = current_thread::Runtime::new().unwrap();
-            let handle = runtime.handle();
+            let mut localpool = executor::LocalPool::new();
+            let mut handle = localpool.spawner();
 
             let done = async move {
                 let addr = SocketAddr::from(([127, 0, 0, 1], 0));
-                let listener = TcpListener::bind(&addr).await?;
+                let mut listener = TcpListener::bind(&addr)?;
 
                 send.send(listener.local_addr()?).unwrap();
 
@@ -45,8 +44,8 @@ lazy_static!{
                     let fut = async move {
                         let stream = acceptor.accept(stream?).await?;
 
-                        let (mut reader, mut writer) = split(stream);
-                        reader.copy(&mut writer).await?;
+                        let (reader, mut writer) = stream.split();
+                        reader.copy_into(&mut writer).await?;
 
                         Ok(()) as io::Result<()>
                     }.unwrap_or_else(|err| eprintln!("server: {:?}", err));
@@ -57,7 +56,7 @@ lazy_static!{
                 Ok(()) as io::Result<()>
             }.unwrap_or_else(|err| eprintln!("server: {:?}", err));
 
-            runtime.block_on(done);
+            localpool.run_until(done);
         });
 
         let addr = recv.recv().unwrap();
@@ -87,16 +86,8 @@ async fn start_client(addr: SocketAddr, domain: &str, config: Arc<ClientConfig>)
     Ok(())
 }
 
-#[tokio::test]
-async fn pass() -> io::Result<()> {
+async fn async_pass() -> io::Result<()> {
     let (addr, domain, chain) = start_server();
-
-    // TODO: not sure how to resolve this right now but since
-    // TcpStream::bind now returns a future it creates a race
-    // condition until its ready sometimes.
-    use std::time::*;
-    let deadline = Instant::now() + Duration::from_secs(1);
-    tokio::timer::delay(deadline);
 
     let mut config = ClientConfig::new();
     let mut chain = BufReader::new(Cursor::new(chain));
@@ -108,8 +99,12 @@ async fn pass() -> io::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn fail() -> io::Result<()> {
+#[test]
+fn pass() -> io::Result<()> {
+    executor::block_on(async_pass())
+}
+
+async fn async_fail() -> io::Result<()> {
     let (addr, domain, chain) = start_server();
 
     let mut config = ClientConfig::new();
@@ -122,4 +117,9 @@ async fn fail() -> io::Result<()> {
     assert!(ret.is_err());
 
     Ok(())
+}
+
+#[test]
+fn fail() -> io::Result<()> {
+    executor::block_on(async_fail())
 }
