@@ -57,7 +57,7 @@ This project is licensed under either of
 
 at your option.
 
-This started as a fork of [futures-tls](https://github.com/futures-rs/futures-tls).
+This started as a fork of [tokio-tls](https://github.com/tokio-rs/tokio-tls).
 
 ### Contribution
 
