@@ -180,6 +180,24 @@ pub struct Connect<IO>(client::MidHandshake<IO>);
 /// once the accept handshake has finished.
 pub struct Accept<IO>(server::MidHandshake<IO>);
 
+impl<IO> Connect<IO> {
+    pub fn take_inner(&mut self) -> Option<IO> {
+        match mem::replace(&mut self.0, client::MidHandshake::End) {
+            client::MidHandshake::Handshaking(client::TlsStream { io, .. }) => Some(io),
+            _ => None
+        }
+    }
+}
+
+impl<IO> Accept<IO> {
+    pub fn take_inner(&mut self) -> Option<IO> {
+        match mem::replace(&mut self.0, server::MidHandshake::End) {
+            server::MidHandshake::Handshaking(server::TlsStream { io, .. }) => Some(io),
+            _ => None
+        }
+    }
+}
+
 impl<IO: AsyncRead + AsyncWrite> Future for Connect<IO> {
     type Item = client::TlsStream<IO>;
     type Error = io::Error;
