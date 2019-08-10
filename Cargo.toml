@@ -15,12 +15,12 @@ travis-ci = { repository = "quininer/tokio-rustls" }
 appveyor = { repository = "quininer/tokio-rustls" }
 
 [dependencies]
-rustls = "0.15"
+rustls = "0.16"
 futures = "0.1"
 tokio-io = "0.1.6"
 bytes = "0.4"
 iovec = "0.1"
-webpki = "0.19"
+webpki = "0.21"
 
 [features]
 early-data = []
@@ -29,4 +29,4 @@ dangerous_configuration = [ "rustls/dangerous_configuration" ]
 [dev-dependencies]
 tokio = "0.1.6"
 lazy_static = "1"
-webpki-roots = "0.16"
+webpki-roots = "0.17"
