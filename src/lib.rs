@@ -14,7 +14,7 @@ pub mod server;
 
 use common::Stream;
 use futures::{Async, Future, Poll};
-use rustls::{ClientConfig, ClientSession, ServerConfig, ServerSession};
+use rustls::{ClientConfig, ClientSession, ServerConfig, ServerSession, Session};
 use std::sync::Arc;
 use std::{io, mem};
 use tokio_io::{try_nb, AsyncRead, AsyncWrite};
@@ -213,6 +213,106 @@ impl<IO: AsyncRead + AsyncWrite> Future for Accept<IO> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0.poll()
+    }
+}
+
+/// Unified TLS stream type
+///
+/// This abstracts over the inner `client::TlsStream` and `server::TlsStream`, so you can use
+/// a single type to keep both client- and server-initiated TLS-encrypted connections.
+pub enum TlsStream<T> {
+    Client(client::TlsStream<T>),
+    Server(server::TlsStream<T>),
+}
+
+impl<T> TlsStream<T> {
+    pub fn get_ref(&self) -> (&T, &dyn Session) {
+        use TlsStream::*;
+        match self {
+            Client(io) => {
+                let (io, session) = io.get_ref();
+                (io, &*session)
+            }
+            Server(io) => {
+                let (io, session) = io.get_ref();
+                (io, &*session)
+            }
+        }
+    }
+
+    pub fn get_mut(&mut self) -> (&mut T, &mut dyn Session) {
+        use TlsStream::*;
+        match self {
+            Client(io) => {
+                let (io, session) = io.get_mut();
+                (io, &mut *session)
+            }
+            Server(io) => {
+                let (io, session) = io.get_mut();
+                (io, &mut *session)
+            }
+        }
+    }
+}
+
+impl<T> From<client::TlsStream<T>> for TlsStream<T> {
+    fn from(s: client::TlsStream<T>) -> Self {
+        Self::Client(s)
+    }
+}
+
+impl<T> From<server::TlsStream<T>> for TlsStream<T> {
+    fn from(s: server::TlsStream<T>) -> Self {
+        Self::Server(s)
+    }
+}
+
+impl<T> io::Read for TlsStream<T>
+where
+    T: AsyncRead + AsyncWrite + io::Read,
+{
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+        use TlsStream::*;
+        match self {
+            Client(io) => io.read(buf),
+            Server(io) => io.read(buf),
+        }
+    }
+}
+
+impl<T> io::Write for TlsStream<T>
+where
+    T: AsyncRead + AsyncWrite + io::Write,
+{
+    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
+        use TlsStream::*;
+        match self {
+            Client(io) => io.write(buf),
+            Server(io) => io.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> Result<(), io::Error> {
+        use TlsStream::*;
+        match self {
+            Client(io) => io.flush(),
+            Server(io) => io.flush(),
+        }
+    }
+}
+
+impl<T> AsyncRead for TlsStream<T> where T: AsyncRead + AsyncWrite {}
+
+impl<T> AsyncWrite for TlsStream<T>
+where
+    T: AsyncRead + AsyncWrite,
+{
+    fn shutdown(&mut self) -> Poll<(), io::Error> {
+        use TlsStream::*;
+        match self {
+            Client(io) => io.shutdown(),
+            Server(io) => io.shutdown(),
+        }
     }
 }
 
