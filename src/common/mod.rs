@@ -78,6 +78,14 @@ impl<'a, S: Session, IO: Read + Write> Stream<'a, S, IO> {
                 }
             }
 
+            if let Focus::Writable = focus {
+                if !write_would_block {
+                    return Ok((rdlen, wrlen));
+                } else {
+                    return Err(io::ErrorKind::WouldBlock.into());
+                }
+            }
+
             if !eof && self.session.wants_read() {
                 match self.complete_read_io() {
                     Ok(0) => eof = true,
