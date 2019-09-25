@@ -81,6 +81,14 @@ impl<'a, IO: AsyncRead + AsyncWrite, S: Session> Stream<'a, IO, S> {
                 }
             }
 
+            if let Focus::Writable = focus {
+                if !write_would_block {
+                    return Ok((rdlen, wrlen));
+                } else {
+                    return Err(io::ErrorKind::WouldBlock.into());
+                }
+            }
+
             if !self.eof && self.session.wants_read() {
                 match self.complete_read_io() {
                     Ok(0) => self.eof = true,
@@ -99,7 +107,7 @@ impl<'a, IO: AsyncRead + AsyncWrite, S: Session> Stream<'a, IO, S> {
             };
 
             match (
-                self.eof, 
+                self.eof,
                 self.session.is_handshaking(),
                 would_block,
             ) {
