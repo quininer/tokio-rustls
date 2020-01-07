@@ -315,7 +315,3 @@ where
         }
     }
 }
-
-#[cfg(feature = "early-data")]
-#[cfg(test)]
-mod test_0rtt;

@@ -97,7 +97,7 @@ where
 
                     // end
                     self.state = TlsState::Stream;
-                    data.clear();
+                    *data = Vec::new();
                 }
 
                 self.read(buf)
@@ -143,7 +143,9 @@ where
                 if let Some(mut early_data) = stream.session.early_data() {
                     let len = early_data.write(buf)?;
                     data.extend_from_slice(&buf[..len]);
-                    return Ok(len);
+                    if len != 0 {
+                        return Ok(len);
+                    }
                 }
 
                 // complete handshake
@@ -161,7 +163,7 @@ where
 
                 // end
                 self.state = TlsState::Stream;
-                data.clear();
+                *data = Vec::new();
                 stream.write(buf)
             }
             _ => stream.write(buf),
@@ -169,9 +171,28 @@ where
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        Stream::new(&mut self.io, &mut self.session)
-            .set_eof(!self.state.readable())
-            .flush()?;
+        let mut stream = Stream::new(&mut self.io, &mut self.session)
+            .set_eof(!self.state.readable());
+
+        #[cfg(feature = "early-data")] {
+            let (pos, data) = &mut self.early_data;
+
+            while stream.session.is_handshaking() {
+                stream.complete_io()?;
+            }
+
+            // write early data (fallback)
+            if !stream.session.is_early_data_accepted() {
+                while *pos < data.len() {
+                    *pos = stream.write(&data[*pos..])?;
+                }
+            }
+
+            self.state = TlsState::Stream;
+            *data = Vec::new();
+        }
+
+        stream.flush()?;
         self.io.flush()
     }
 }

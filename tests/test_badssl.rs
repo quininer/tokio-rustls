@@ -1,6 +1,7 @@
 extern crate tokio;
 extern crate webpki;
 extern crate webpki_roots;
+extern crate tokio_rustls;
 
 use std::io;
 use std::sync::Arc;
@@ -8,14 +9,14 @@ use std::net::ToSocketAddrs;
 use self::tokio::io as aio;
 use self::tokio::prelude::*;
 use self::tokio::net::TcpStream;
-use rustls::ClientConfig;
-use ::{ TlsConnector, client::TlsStream };
+use tokio_rustls::rustls::ClientConfig;
+use tokio_rustls::{ TlsConnector, client::TlsStream };
 
 
-fn get(config: Arc<ClientConfig>, domain: &str, rtt0: bool)
+fn get(config: Arc<ClientConfig>, domain: &str)
     -> io::Result<(TlsStream<TcpStream>, String)>
 {
-    let config = TlsConnector::from(config).early_data(rtt0);
+    let config = TlsConnector::from(config);
     let input = format!("GET / HTTP/1.0\r\nHost: {}\r\n\r\n", domain);
 
     let addr = (domain, 443)
@@ -34,18 +35,12 @@ fn get(config: Arc<ClientConfig>, domain: &str, rtt0: bool)
 }
 
 #[test]
-fn test_0rtt() {
+fn test_badssl() {
     let mut config = ClientConfig::new();
     config.root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-    config.enable_early_data = true;
     let config = Arc::new(config);
     let domain = "mozilla-modern.badssl.com";
 
-    let (_, output) = get(config.clone(), domain, false).unwrap();
+    let (_, output) = get(config.clone(), domain).unwrap();
     assert!(output.contains("<title>mozilla-modern.badssl.com</title>"));
-
-    let (io, output) = get(config.clone(), domain, true).unwrap();
-    assert!(output.contains("<title>mozilla-modern.badssl.com</title>"));
-
-    assert_eq!(io.early_data.0, 0);
 }
