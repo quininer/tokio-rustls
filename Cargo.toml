@@ -17,7 +17,7 @@ github-actions = { repository = "quininer/tokio-rustls", workflow = "Rust" }
 [dependencies]
 tokio = "0.2.0"
 futures-core = "0.3.1"
-rustls = "0.16"
+rustls = "0.17"
 webpki = "0.21"
 
 bytes = { version = "0.5", optional = true }
